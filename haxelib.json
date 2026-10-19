@@ -1,6 +1,6 @@
 {
   "name": "hxomemo",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "OMEMO end-to-end encryption (XEP-0384, version 0.3): X3DH, Double Ratchet, sessions and devices",
   "url": "https://github.com/tong/hxomemo",
   "license": "MIT",

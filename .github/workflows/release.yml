@@ -1,8 +1,8 @@
 name: release
 
-# omemo.hdll for HashLink (bytecode) on each platform, tested with an hl of the platform, as artifacts; pushing a
-# tag (v1.2.3) also publishes them as GitHub release. Only x86_64: the HashLink VM doesn't run on arm64 (HashLink/C
-# builds compile native/omemo.c themselves).
+# omemo.hdll for HashLink (bytecode) on each platform, as artifacts; pushing a tag (v1.2.3) also publishes them as
+# GitHub release. x86_64: tested with an hl of the platform; arm64: only checked (architecture, exports), the
+# HashLink VM doesn't run on arm64 yet (HashLink/C builds compile native/omemo.c themselves).
 on:
   push:
     tags:
@@ -25,10 +25,19 @@ jobs:
           # an older glibc: runs on more systems
           - name: linux-x86_64
             os: ubuntu-22.04
+            test: true
+          - name: linux-arm64
+            os: ubuntu-22.04-arm
+            test: false
           - name: macos-x86_64
             os: macos-15-intel
+            test: true
+          - name: macos-arm64
+            os: macos-latest
+            test: false
           - name: windows-x86_64
             os: windows-latest
+            test: true
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
@@ -39,7 +48,9 @@ jobs:
           ref: ${{ env.HASHLINK_COMMIT }}
           path: hashlink
 
+      # for the tests
       - uses: krdlab/setup-haxe@v2
+        if: matrix.test
         with:
           haxe-version: 5.0.0-preview.1
 
@@ -64,13 +75,13 @@ jobs:
 
       # the tests load omemo.hdll into hl (macOS: from the working directory, libhl next to hl)
       - name: Test (Linux, macOS)
-        if: runner.os != 'Windows'
+        if: runner.os != 'Windows' && matrix.test
         run: |
           make -C hashlink -j4 hl
           make test HASHLINK_SRC=hashlink HL_LIB="$PWD/hashlink" PATH="$PWD/hashlink:$PATH"
 
       - name: Test (Windows)
-        if: runner.os == 'Windows'
+        if: runner.os == 'Windows' && matrix.test
         shell: bash
         run: |
           gh release download "$HASHLINK_WINDOWS" -R HaxeFoundation/hashlink -p 'hashlink-*-win.zip' -O hl.zip
@@ -81,6 +92,17 @@ jobs:
           "$hl/hl.exe" test.hl
         env:
           GH_TOKEN: ${{ github.token }}
+
+      # without an hl: the architecture, and that it exports all natives (hlp_<name>, of DEFINE_PRIM)
+      - name: Check (arm64)
+        if: ${{ !matrix.test }}
+        run: |
+          file omemo.hdll
+          file omemo.hdll | grep -qiE 'arm64|aarch64'
+          natives=$(grep -c '^DEFINE_PRIM' native/omemo.c)
+          exports=$(nm -g omemo.hdll | grep -cE ' T _?hlp_')
+          echo "$exports of $natives natives exported"
+          [ "$exports" -eq "$natives" ]
 
       - name: Licenses
         shell: bash

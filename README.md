@@ -23,9 +23,9 @@ not be constant-time. Curve25519 (X25519, XEdDSA) with [Monocypher](https://mono
 (`native/monocypher`, BSD-2-Clause or CC0), AES-CBC, AES-GCM, HMAC and HKDF with mbedtls 3 (bundled with HashLink).
 
 - HashLink/C: compile `native/omemo.c` and `native/monocypher/*.c` into the program, with HashLink's mbedtls.
-- HashLink: `make HASHLINK_SRC=<HashLink sources>` builds `omemo.hdll`. Built for Linux, macOS and Windows (x86_64, the platforms of the
-  HashLink VM) on the [releases](https://github.com/tong/hxomemo/releases): put it next to `hl` or in the working
-  directory. It needs no libhl of a particular version.
+- HashLink: `make HASHLINK_SRC=<HashLink sources>` builds `omemo.hdll`. Built for Linux, macOS and Windows (x86_64; Linux and macOS also
+  arm64, for when the HashLink VM runs there) on the [releases](https://github.com/tong/hxomemo/releases): put it next
+  to `hl` or in the working directory. It needs no libhl of a particular version.
 
 ## Tests
 

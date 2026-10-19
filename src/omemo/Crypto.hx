@@ -8,8 +8,20 @@ import haxe.io.Bytes;
 
 	Only HashLink (`omemo.hdll`) and HashLink/C (`native/omemo.c` compiled in) for now: crypto written in Haxe would
 	not be constant-time. Throws `CryptoError` when a primitive fails.
+
+	The library is optional for HashLink: a program without `omemo.hdll` still starts (see `available`), the primitives
+	throw when called.
 **/
 class Crypto {
+	static var loaded:Null<Bool>;
+
+	/** Whether the natives are there (HashLink: `omemo.hdll` found; always with HashLink/C) **/
+	public static function available():Bool {
+		if (loaded == null)
+			loaded = try _random(p(Bytes.alloc(1)), 1) == 0 catch (_) false;
+		return loaded;
+	}
+
 	public static function random(len:Int):Bytes {
 		final b = Bytes.alloc(len);
 		if (_random(p(b), len) != 0)
@@ -124,45 +136,45 @@ class Crypto {
 	static inline function p(b:Bytes):hl.Bytes
 		return @:privateAccess b.b;
 
-	@:hlNative("omemo", "random") static function _random(b:hl.Bytes, len:Int):Int
+	@:hlNative("?omemo", "random") static function _random(b:hl.Bytes, len:Int):Int
 		return -1;
 
-	@:hlNative("omemo", "x25519_keypair") static function _x25519_keypair(priv:hl.Bytes, pub:hl.Bytes):Int
+	@:hlNative("?omemo", "x25519_keypair") static function _x25519_keypair(priv:hl.Bytes, pub:hl.Bytes):Int
 		return -1;
 
-	@:hlNative("omemo", "x25519_public") static function _x25519_public(priv:hl.Bytes, pub:hl.Bytes):Void {}
+	@:hlNative("?omemo", "x25519_public") static function _x25519_public(priv:hl.Bytes, pub:hl.Bytes):Void {}
 
-	@:hlNative("omemo", "x25519") static function _x25519(priv:hl.Bytes, pub:hl.Bytes, out:hl.Bytes):Int
+	@:hlNative("?omemo", "x25519") static function _x25519(priv:hl.Bytes, pub:hl.Bytes, out:hl.Bytes):Int
 		return -1;
 
-	@:hlNative("omemo", "xeddsa_sign") static function _xeddsa_sign(priv:hl.Bytes, msg:hl.Bytes, len:Int, sig:hl.Bytes):Int
+	@:hlNative("?omemo", "xeddsa_sign") static function _xeddsa_sign(priv:hl.Bytes, msg:hl.Bytes, len:Int, sig:hl.Bytes):Int
 		return -1;
 
-	@:hlNative("omemo", "xeddsa_verify") static function _xeddsa_verify(pub:hl.Bytes, msg:hl.Bytes, len:Int, sig:hl.Bytes):Bool
+	@:hlNative("?omemo", "xeddsa_verify") static function _xeddsa_verify(pub:hl.Bytes, msg:hl.Bytes, len:Int, sig:hl.Bytes):Bool
 		return false;
 
-	@:hlNative("omemo", "hmac_sha256") static function _hmac_sha256(key:hl.Bytes, keylen:Int, data:hl.Bytes, len:Int, out:hl.Bytes):Int
+	@:hlNative("?omemo", "hmac_sha256") static function _hmac_sha256(key:hl.Bytes, keylen:Int, data:hl.Bytes, len:Int, out:hl.Bytes):Int
 		return -1;
 
-	@:hlNative("omemo", "hkdf_sha256") static function _hkdf_sha256(salt:hl.Bytes, saltlen:Int, ikm:hl.Bytes, ikmlen:Int, info:hl.Bytes, infolen:Int,
+	@:hlNative("?omemo", "hkdf_sha256") static function _hkdf_sha256(salt:hl.Bytes, saltlen:Int, ikm:hl.Bytes, ikmlen:Int, info:hl.Bytes, infolen:Int,
 			out:hl.Bytes, outlen:Int):Int
 		return -1;
 
-	@:hlNative("omemo", "aes_cbc_encrypt") static function _aes_cbc_encrypt(key:hl.Bytes, iv:hl.Bytes, input:hl.Bytes, len:Int, out:hl.Bytes):Int
+	@:hlNative("?omemo", "aes_cbc_encrypt") static function _aes_cbc_encrypt(key:hl.Bytes, iv:hl.Bytes, input:hl.Bytes, len:Int, out:hl.Bytes):Int
 		return -1;
 
-	@:hlNative("omemo", "aes_cbc_decrypt") static function _aes_cbc_decrypt(key:hl.Bytes, iv:hl.Bytes, input:hl.Bytes, len:Int, out:hl.Bytes):Int
+	@:hlNative("?omemo", "aes_cbc_decrypt") static function _aes_cbc_decrypt(key:hl.Bytes, iv:hl.Bytes, input:hl.Bytes, len:Int, out:hl.Bytes):Int
 		return -1;
 
-	@:hlNative("omemo", "aes_gcm_encrypt") static function _aes_gcm_encrypt(key:hl.Bytes, keylen:Int, iv:hl.Bytes, ivlen:Int, input:hl.Bytes, len:Int,
+	@:hlNative("?omemo", "aes_gcm_encrypt") static function _aes_gcm_encrypt(key:hl.Bytes, keylen:Int, iv:hl.Bytes, ivlen:Int, input:hl.Bytes, len:Int,
 			out:hl.Bytes, tag:hl.Bytes):Int
 		return -1;
 
-	@:hlNative("omemo", "aes_gcm_decrypt") static function _aes_gcm_decrypt(key:hl.Bytes, keylen:Int, iv:hl.Bytes, ivlen:Int, input:hl.Bytes, len:Int,
+	@:hlNative("?omemo", "aes_gcm_decrypt") static function _aes_gcm_decrypt(key:hl.Bytes, keylen:Int, iv:hl.Bytes, ivlen:Int, input:hl.Bytes, len:Int,
 			tag:hl.Bytes, taglen:Int, out:hl.Bytes):Int
 		return -1;
 
-	@:hlNative("omemo", "equals") static function _equals(a:hl.Bytes, b:hl.Bytes, len:Int):Bool
+	@:hlNative("?omemo", "equals") static function _equals(a:hl.Bytes, b:hl.Bytes, len:Int):Bool
 		return false;
 	#else
 	#error "hxomemo: only HashLink and HashLink/C for now"

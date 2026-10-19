@@ -4,6 +4,7 @@
 #   make HASHLINK_SRC=~/dev/norc/lib/hashlink
 #
 #   make          omemo.hdll
+#   make install  into $(PREFIX)/lib (/usr/local/lib: next to HashLink's hdlls, where hl finds them)
 #   make test     run the tests (HashLink)
 #   make interop  with python-oldmemo (VENV: a python venv with `pip install 'oldmemo[xml]'`)
 
@@ -25,7 +26,8 @@ else
 LDFLAGS := -shared -Wl,--gc-sections
 endif
 
-.PHONY: all test interop clean
+.PHONY: all install test interop clean
+PREFIX ?= /usr/local
 VENV ?= venv
 all: omemo.hdll
 
@@ -51,13 +53,17 @@ $(BUILD)/%.o: native/monocypher/%.c
 omemo.hdll: $(OMEMO_OBJ) $(BUILD)/libmbedtls.a
 	$(CC) $(LDFLAGS) -o $@ $(OMEMO_OBJ) $(BUILD)/libmbedtls.a -L$(HL_LIB) -lhl -lpthread
 
+install: omemo.hdll
+	install -d $(DESTDIR)$(PREFIX)/lib
+	install -m 755 omemo.hdll $(DESTDIR)$(PREFIX)/lib/
+
 test: omemo.hdll
 	haxe test.hxml
-	LD_LIBRARY_PATH=$(CURDIR) hl test.hl
+	LD_LIBRARY_PATH=$(CURDIR):$(HL_LIB) hl test.hl
 
 interop: omemo.hdll
 	haxe peer.hxml
-	LD_LIBRARY_PATH=$(CURDIR) $(VENV)/bin/python -I test/interop.py hl test/peer.hl
+	LD_LIBRARY_PATH=$(CURDIR):$(HL_LIB) $(VENV)/bin/python -I test/interop.py hl test/peer.hl
 
 clean:
 	rm -rf $(BUILD) omemo.hdll test.hl test/peer.hl

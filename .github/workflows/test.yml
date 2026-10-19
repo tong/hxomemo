@@ -1,0 +1,37 @@
+name: test
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    env:
+      # the HashLink sources: hl.h and the mbedtls of omemo.hdll, hl to run the tests
+      HASHLINK_SRC: ${{ github.workspace }}/hashlink
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: krdlab/setup-haxe@v2
+        with:
+          haxe-version: 5.0.0-preview.1
+
+      # the commit norc builds with (its submodule lib/hashlink)
+      - uses: actions/checkout@v7
+        with:
+          repository: HaxeFoundation/hashlink
+          ref: 864721a5fca5ac2f5f5cfdf34639274b5b34a4bc
+          path: hashlink
+
+      - name: Build HashLink (hl, libhl)
+        run: |
+          make -C hashlink -j"$(nproc)" libhl.so hl
+          echo "$HASHLINK_SRC" >> "$GITHUB_PATH"
+
+      - name: Tests
+        run: make test HASHLINK_SRC="$HASHLINK_SRC" HL_LIB="$HASHLINK_SRC"
+
+      - name: Interop tests (python-oldmemo)
+        run: |
+          python3 -m venv venv
+          venv/bin/pip install -q 'oldmemo[xml]'
+          make interop HASHLINK_SRC="$HASHLINK_SRC" HL_LIB="$HASHLINK_SRC" VENV=venv

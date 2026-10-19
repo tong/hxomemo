@@ -43,6 +43,7 @@ class Test {
 		return Bytes.ofHex(s);
 
 	static function primitives() {
+		check(Crypto.available(), "natives loaded");
 		// RFC 7748 6.1
 		final a = hex("77076d0a7318a57d3c16c17251b26645df4c2f87ebc0992ab177fba51db92c2a");
 		final b = hex("5dab087e624a8a4b79e17f8b83800ee66f3bb1292618b6fd1c2f8b27ff88e0eb");

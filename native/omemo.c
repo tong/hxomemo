@@ -10,6 +10,13 @@
         Buffers are passed with their lengths; functions return 0 (or a length)
    on success, -1 on errors.
 */
+// before hl.h, which defines _GUID (a type of DEFINE_PRIM) of windows.h
+#if defined(_WIN32)
+#include <windows.h>
+// after windows.h (its types): not sorted with it
+#include <bcrypt.h>
+#endif
+
 #define HL_NAME(n) omemo_##n
 #include <hl.h>
 #include <string.h>
@@ -22,12 +29,9 @@
 #include <mbedtls/hkdf.h>
 #include <mbedtls/md.h>
 
-#if defined(_WIN32)
-#include <bcrypt.h>
-#include <windows.h>
-#elif defined(__APPLE__)
+#if defined(__APPLE__)
 #include <stdlib.h>
-#else
+#elif !defined(_WIN32)
 #include <errno.h>
 #include <sys/random.h>
 #endif

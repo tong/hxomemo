@@ -7,6 +7,8 @@
 #   make install  into $(PREFIX)/lib (/usr/local/lib: next to HashLink's hdlls, where hl finds them)
 #   make test     run the tests (HashLink)
 #   make interop  with python-oldmemo (VENV: a python venv with `pip install 'oldmemo[xml]'`)
+#
+# omemo.hdll uses no function of libhl (only hl.h): not linked with it, it works with any hl of the platform.
 
 HASHLINK_SRC ?= ../hashlink
 HL_INC ?= $(HASHLINK_SRC)/src
@@ -20,10 +22,16 @@ MBEDTLS_SRC := $(wildcard $(HASHLINK_SRC)/include/mbedtls/library/*.c)
 MBEDTLS_OBJ := $(patsubst $(HASHLINK_SRC)/include/mbedtls/library/%.c,$(BUILD)/mbedtls/%.o,$(MBEDTLS_SRC))
 OMEMO_OBJ := $(BUILD)/omemo.o $(BUILD)/monocypher.o $(BUILD)/monocypher-ed25519.o
 
-ifeq ($(shell uname -s),Darwin)
+ifeq ($(OS),Windows_NT)
+# MinGW: without its DLLs (libgcc, winpthread)
+LDFLAGS := -shared -Wl,--gc-sections -static-libgcc
+LIBS := -lbcrypt
+else ifeq ($(shell uname -s),Darwin)
 LDFLAGS := -shared -Wl,-dead_strip
+LIBS := -lpthread
 else
 LDFLAGS := -shared -Wl,--gc-sections
+LIBS := -lpthread
 endif
 
 .PHONY: all install test interop clean
@@ -51,7 +59,7 @@ $(BUILD)/%.o: native/monocypher/%.c
 	$(CC) $(CFLAGS) -fvisibility=hidden -c $< -o $@
 
 omemo.hdll: $(OMEMO_OBJ) $(BUILD)/libmbedtls.a
-	$(CC) $(LDFLAGS) -o $@ $(OMEMO_OBJ) $(BUILD)/libmbedtls.a -L$(HL_LIB) -lhl -lpthread
+	$(CC) $(LDFLAGS) -o $@ $(OMEMO_OBJ) $(BUILD)/libmbedtls.a $(LIBS)
 
 install: omemo.hdll
 	install -d $(DESTDIR)$(PREFIX)/lib

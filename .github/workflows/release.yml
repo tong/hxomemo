@@ -1,0 +1,131 @@
+name: release
+
+# omemo.hdll for HashLink (bytecode) on each platform, tested with an hl of the platform, as artifacts; pushing a
+# tag (v1.2.3) also publishes them as GitHub release. Only x86_64: the HashLink VM doesn't run on arm64 (HashLink/C
+# builds compile native/omemo.c themselves).
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+      - 'v[0-9]+.[0-9]+.[0-9]+-*'
+  workflow_dispatch:
+
+env:
+  # the HashLink sources (hl.h, the mbedtls compiled in), the commit norc builds with (its submodule lib/hashlink)
+  HASHLINK_COMMIT: 864721a5fca5ac2f5f5cfdf34639274b5b34a4bc
+  # the hl of Windows: of the HashLink release (the one users have)
+  HASHLINK_WINDOWS: '1.16'
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # an older glibc: runs on more systems
+          - name: linux-x86_64
+            os: ubuntu-22.04
+          - name: macos-x86_64
+            os: macos-15-intel
+          - name: windows-x86_64
+            os: windows-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/checkout@v7
+        with:
+          repository: HaxeFoundation/hashlink
+          ref: ${{ env.HASHLINK_COMMIT }}
+          path: hashlink
+
+      - uses: krdlab/setup-haxe@v2
+        with:
+          haxe-version: 5.0.0-preview.1
+
+      - name: Build (Linux, macOS)
+        if: runner.os != 'Windows'
+        run: make -j4 HASHLINK_SRC=hashlink
+
+      # MinGW, linked statically with libgcc: omemo.hdll needs only system DLLs
+      - uses: msys2/setup-msys2@v2
+        if: runner.os == 'Windows'
+        with:
+          msystem: UCRT64
+          install: make mingw-w64-ucrt-x86_64-gcc
+          path-type: inherit
+
+      - name: Build (Windows)
+        if: runner.os == 'Windows'
+        shell: msys2 {0}
+        run: |
+          make -j4 HASHLINK_SRC=hashlink
+          objdump -p omemo.hdll | grep 'DLL Name'
+
+      # the tests load omemo.hdll into hl (macOS: from the working directory, libhl next to hl)
+      - name: Test (Linux, macOS)
+        if: runner.os != 'Windows'
+        run: |
+          make -C hashlink -j4 hl
+          make test HASHLINK_SRC=hashlink HL_LIB="$PWD/hashlink" PATH="$PWD/hashlink:$PATH"
+
+      - name: Test (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          gh release download "$HASHLINK_WINDOWS" -R HaxeFoundation/hashlink -p 'hashlink-*-win.zip' -O hl.zip
+          unzip -q hl.zip -d hl
+          hl=$(dirname "$(find hl -name hl.exe)")
+          cp omemo.hdll "$hl/"
+          haxe test.hxml
+          "$hl/hl.exe" test.hl
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Licenses
+        shell: bash
+        run: |
+          mkdir -p dist/licenses
+          cp omemo.hdll dist/
+          cp native/monocypher/LICENCE.md dist/licenses/monocypher.md
+          cp hashlink/include/mbedtls/LICENSE dist/licenses/mbedtls.txt
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: omemo-hdll-${{ github.ref_name }}-${{ matrix.name }}
+          path: dist
+          if-no-files-found: error
+
+  # The GitHub release of the tag: a zip per platform (omemo.hdll and the licenses of Monocypher and mbedtls)
+  release:
+    needs: build
+    if: github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: omemo-hdll-${{ github.ref_name }}-*
+          path: artifacts
+
+      - name: Pack
+        run: |
+          mkdir dist
+          for dir in artifacts/*/; do
+            (cd "$dir" && zip -qr "../../dist/$(basename "$dir").zip" .)
+          done
+          (cd dist && sha256sum * > SHA256SUMS)
+          cat dist/SHA256SUMS
+
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          prerelease=$([[ "$GITHUB_REF_NAME" == *-* ]] && echo --prerelease || true)
+          gh release create "$GITHUB_REF_NAME" dist/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "hxomemo ${GITHUB_REF_NAME#v}" \
+            --generate-notes \
+            --verify-tag \
+            $prerelease

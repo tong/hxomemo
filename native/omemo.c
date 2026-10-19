@@ -37,6 +37,9 @@
 #endif
 
 static int fill_random(unsigned char *buf, size_t len) {
+  // nothing to fill (BCryptGenRandom refuses it, the buffer may be NULL)
+  if (len == 0)
+    return 0;
 #if defined(_WIN32)
   return BCryptGenRandom(NULL, buf, (ULONG)len,
                          BCRYPT_USE_SYSTEM_PREFERRED_RNG) == 0
